@@ -18,6 +18,7 @@ const User = mongoose.model('User', userSchema);
 
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
 
+// авто-капитализация города
 function formatCity(city) {
   if (!city) return '';
   return city.charAt(0).toUpperCase() + city.slice(1).toLowerCase();
@@ -28,18 +29,19 @@ const MESSAGES = {
 
 Вы обратились в компанию по набору персонала в Норвегию! 🇳🇴
 
-Заработная плата по нашим вакансиями 3300-7400€/ мес 
+Заработная плата по нашим вакансиями 3300-7400€/ мес
 
 Заполните анкету по примеру:
 
-1.Ваш город 
+1.Ваш город
 2.Ваш возраст
 
 Например: Москва, 41`,
-  invalidFormat: '❌ Неверный формат. Введите данные так: <b>Город, Возраст</b>\nПример: <i>41, Москва</i>',
+  invalidFormat: '❌ Неверный формат. Введите данные так: <b>Город, Возраст</b>\nПример: <i>Москва 41</i>',
   invalidAge: '❌ Укажите корректный возраст (от 16 до 65 лет).',
   alreadyRegistered: '✅ Вы уже зарегистрированы!\n\n📍 Город: {city}\n📅 Возраст: {age}\n📱 Username: {username}',
   formCompleted: '✅ Ваши данные сохранены! Наш менеджер свяжется с вами.',
+  contactManager: '📞 Для связи с менеджером используйте кнопку ниже:',
   error: '❌ Произошла ошибка. Попробуйте позже.'
 };
 
@@ -56,17 +58,12 @@ bot.onText(/\/start/, async (msg) => {
         .replace('{age}', existingUser.age)
         .replace('{username}', existingUser.username ? `@${existingUser.username}` : 'не указан');
       
-      await bot.sendMessage(chatId, message, { 
-        parse_mode: 'HTML',
-        reply_markup: managerKeyboard()
-      });
+      await bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
+      await sendManagerContact(chatId);      
       return;
     }
 
-    await bot.sendMessage(chatId, MESSAGES.welcome, { 
-      parse_mode: 'HTML',
-      reply_markup: managerKeyboard()
-    });
+    await bot.sendMessage(chatId, MESSAGES.welcome, { parse_mode: 'HTML' });
     
   } catch (error) {
     console.error('Ошибка в /start:', error);
@@ -82,10 +79,11 @@ bot.on('message', async (msg) => {
   const text = msg.text;
 
   try {
-
+    // Проверим, не зарегистрирован ли уже
     const existingUser = await User.findOne({ telegramId: userId });
     if (existingUser) return;
-    
+
+    // Разрешаем "Город, Возраст" и "Город Возраст"
     const parts = text.includes(',') ? text.split(',') : text.split(' ');
     if (parts.length < 2) {
       await bot.sendMessage(chatId, MESSAGES.invalidFormat, { parse_mode: 'HTML' });
@@ -115,10 +113,8 @@ bot.on('message', async (msg) => {
     await newUser.save();
     console.log(`✅ Новый пользователь: ${city}, ${age} лет`);
 
-    await bot.sendMessage(chatId, MESSAGES.formCompleted, { 
-      parse_mode: 'HTML',
-      reply_markup: managerKeyboard()
-    });
+    await bot.sendMessage(chatId, MESSAGES.formCompleted, { parse_mode: 'HTML' });
+    await sendManagerContact(chatId);
 
   } catch (error) {
     console.error('Ошибка обработки сообщения:', error);
@@ -126,9 +122,10 @@ bot.on('message', async (msg) => {
   }
 });
 
-function managerKeyboard() {
+async function sendManagerContact(chatId) {
   const managerTelegram = process.env.MANAGER_TELEGRAM || '@manager';
-  return {
+  
+  const keyboard = {
     inline_keyboard: [[
       {
         text: '💬 Написать менеджеру',
@@ -136,6 +133,11 @@ function managerKeyboard() {
       }
     ]]
   };
+  
+  await bot.sendMessage(chatId, MESSAGES.contactManager, {
+    reply_markup: keyboard,
+    parse_mode: 'HTML'
+  });
 }
 
 bot.on('error', (error) => {
