@@ -18,7 +18,6 @@ const User = mongoose.model('User', userSchema);
 
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
 
-// авто-капитализация города
 function formatCity(city) {
   if (!city) return '';
   return city.charAt(0).toUpperCase() + city.slice(1).toLowerCase();
@@ -40,7 +39,7 @@ const MESSAGES = {
   invalidFormat: '❌ Неверный формат. Введите данные так: <b>Город, Возраст</b>\nПример: <i>Москва 41</i>',
   invalidAge: '❌ Укажите корректный возраст (от 16 до 65 лет).',
   alreadyRegistered: '✅ Вы уже зарегистрированы!\n\n📍 Город: {city}\n📅 Возраст: {age}\n📱 Username: {username}',
-  formCompleted: '✅ Ваши данные сохранены! Наш менеджер свяжется с вами.',
+  formCompleted: 'Спасибо , ваши данные отправлены ✅\nНапишите вашему менеджеру 📩',
   contactManager: '📞 Для связи с менеджером используйте кнопку ниже:',
   error: '❌ Произошла ошибка. Попробуйте позже.'
 };
@@ -79,11 +78,9 @@ bot.on('message', async (msg) => {
   const text = msg.text;
 
   try {
-    // Проверим, не зарегистрирован ли уже
     const existingUser = await User.findOne({ telegramId: userId });
     if (existingUser) return;
 
-    // Разрешаем "Город, Возраст" и "Город Возраст"
     const parts = text.includes(',') ? text.split(',') : text.split(' ');
     if (parts.length < 2) {
       await bot.sendMessage(chatId, MESSAGES.invalidFormat, { parse_mode: 'HTML' });
@@ -149,3 +146,4 @@ bot.on('polling_error', (error) => {
 });
 
 console.log('🚀 Бот запущен и готов к работе!');
+
